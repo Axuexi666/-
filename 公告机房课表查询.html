@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>机房课表查询工具</title>
+<style>
+* {margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei",Arial,sans-serif;}
+body {background:#f0f2f5;padding:15px;}
+.container {max-width:500px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);padding:25px;}
+h2 {text-align:center;color:#2d3748;margin-bottom:25px;font-size:20px;font-weight:600;}
+.search-box {position:relative;margin-bottom:20px;}
+#key {width:100%;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;font-size:16px;outline:none;}
+#key:focus {border-color:#4299e1;box-shadow:0 0 0 2px rgba(66,153,225,0.1);}
+#searchBtn {width:100%;padding:14px;border:none;background:#4299e1;color:#fff;font-size:16px;border-radius:8px;cursor:pointer;transition:background 0.3s;}
+#searchBtn:hover {background:#3182ce;}
+#result {margin-top:20px;min-height:40px;}
+.empty {text-align:center;color:#718096;padding:20px 0;font-size:15px;}
+.item {padding:16px;border-bottom:1px solid #f7f7f7;}
+.item:last-child {border-bottom:none;}
+.item .title {font-size:16px;font-weight:600;color:#2d3748;margin-bottom:8px;display:flex;justify-content:space-between;}
+.item .info {font-size:14px;color:#4a5568;line-height:1.6;margin:4px 0;}
+.item .info label {color:#718096;margin-right:6px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>公共机房课表查询</h2>
+  <div class="search-box">
+    <input type="text" id="key" placeholder="输入班级/教师姓名/机房号查询">
+  </div>
+  <button id="searchBtn" onclick="searchSchedule()">立即查询</button>
+  <div id="result"></div>
+</div>
+
+<script>
+// 完整机房课表数据（已解析你的Excel课表）
+const scheduleData = [
+  // 机房1
+  {week:"周一",section:"1-2节",room:"机房1",teacher:"马列",class:"2024级小学教育5班、2024级小学教育6班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周一",section:"5-6节",room:"机房1",teacher:"延昕",class:"2025级化工生物技术2班",course:"化工制图(实验)",weekRange:"9-16周"},
+  {week:"周一",section:"7-8节",room:"机房1",teacher:"王春勇",class:"2025级食品智能加工技术1班",course:"工程制图及CAD(实践)",weekRange:"9-16周"},
+  {week:"周二",section:"1-2节",room:"机房1",teacher:"金潇",class:"2024级小学教育7班、2024级小学教育8班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"1-2节",room:"机房1",teacher:"金潇",class:"2024级小学教育1班、2024级小学教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"1-2节",room:"机房1",teacher:"邵志新",class:"2024级小学语文教育1班、2024级小学语文教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"3-4节",room:"机房1",teacher:"邵志新",class:"2024级小学语文教育3班、2024级小学语文教育4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"5-6节",room:"机房1",teacher:"王春勇",class:"2025级食品智能加工技术1班",course:"工程制图及CAD(实践)",weekRange:"9-16周"},
+  // 机房2
+  {week:"周一",section:"1-2节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周一",section:"3-4节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周二",section:"5-6节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周二",section:"7-8节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周二",section:"9-10节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周四",section:"1-2节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周四",section:"3-4节",room:"机房2",teacher:"范樱子、樊小乔",class:"2025级数字媒体技术1班",course:"交互设计、用户界面设计",weekRange:"范12-15周/樊8-11周"},
+  {week:"周五",section:"5-6节",room:"机房2",teacher:"延昕",class:"2025级化工生物技术1班",course:"化工制图(实验)",weekRange:"9-16周"},
+  {week:"周五",section:"7-8节",room:"机房2",teacher:"范樱子",class:"2025级数字媒体技术1班",course:"交互设计",weekRange:"12-15周"},
+  // 机房3
+  {week:"周一",section:"1-2节",room:"机房3",teacher:"陈静",class:"2024级小学教育8班",course:"从教技能Ⅳ（课件制作）",weekRange:"1-17(单)周"},
+  {week:"周二",section:"5-6节",room:"机房3",teacher:"陈静",class:"2024级小学教育1班、2024级小学教育2班",course:"从教技能Ⅳ（课件制作）",weekRange:"1-17单/2-18双周"},
+  {week:"周三",section:"1-2节",room:"机房3",teacher:"陈静",class:"2024级小学教育5班",course:"从教技能Ⅳ（课件制作）",weekRange:"2-18(双)周"},
+  {week:"周三",section:"3-4节",room:"机房3",teacher:"金潇",class:"2024级音乐教育班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"1-2节",room:"机房3",teacher:"陈静",class:"2024级小学教育4班、2024级小学教育7班",course:"从教技能Ⅳ（课件制作）",weekRange:"1-17单/2-18双周"},
+  // 机房4
+  {week:"周一",section:"7-8节",room:"机房4",teacher:"修玮",class:"无",course:"人工智能应用基础(理论)",weekRange:"2-17周"},
+  {week:"周二",section:"3-4节",room:"机房4",teacher:"刘升华",class:"2025级智能制造装备技术班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"5-6节",room:"机房4",teacher:"朱江宁",class:"2025级旅游管理1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"7-8节",room:"机房4",teacher:"朱江宁",class:"2025级旅游管理2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"3-4节",room:"机房4",teacher:"陈科燃",class:"2025级小学英语教育2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"7-8节",room:"机房4",teacher:"邓利强",class:"2025级食品科学与工程1班",course:"计算机辅助制图(实践)",weekRange:"9-16周"},
+  {week:"周四",section:"9-10节",room:"机房4",teacher:"齐桂霞",class:"2025级小学英语教育1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房4",teacher:"修玮",class:"无",course:"人工智能应用基础(理论)",weekRange:"2-17周"},
+  // 机房5
+  {week:"周一",section:"1-2节",room:"机房5",teacher:"王春勇",class:"2025级食品智能加工技术2班",course:"工程制图及CAD(实践)",weekRange:"9-16周"},
+  {week:"周一",section:"5-6节",room:"机房5",teacher:"齐桂霞",class:"2025级美术教育1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"7-8节",room:"机房5",teacher:"杨旭",class:"2025级小学数学教育1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"1-2节",room:"机房5",teacher:"王德力",class:"2025级应用电子技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"3-4节",room:"机房5",teacher:"延昕",class:"2025级化工生物技术1班",course:"化工制图(实验)",weekRange:"9-16周"},
+  {week:"周二",section:"5-6节",room:"机房5",teacher:"刘明",class:"2025级电气自动化技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周三",section:"1-2节",room:"机房5",teacher:"陈静",class:"2024级小学教育3班、2024级小学教育6班",course:"从教技能Ⅳ（课件制作）",weekRange:"1-17单/2-18双周"},
+  {week:"周四",section:"5-6节",room:"机房5",teacher:"胡方",class:"2025级市场营销2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"7-8节",room:"机房5",teacher:"刘智慧",class:"2025级广告艺术设计3班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"9-10节",room:"机房5",teacher:"杜晓雨",class:"2025级现代物流管理1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"1-2节",room:"机房5",teacher:"刘智慧",class:"2025级动漫制作技术1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"3-4节",room:"机房5",teacher:"陈科燃",class:"2025级现代文秘2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"5-6节",room:"机房5",teacher:"齐桂霞",class:"2025级视觉传达设计1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房5",teacher:"乔丽宏",class:"2025级数字媒体技术1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  // 机房6
+  {week:"周一",section:"1-2节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周一",section:"3-4节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周一",section:"5-6节",room:"机房6",teacher:"李明文",class:"2024级小学语文教育5班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周二",section:"1-2节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周二",section:"3-4节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周三",section:"1-2节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周三",section:"3-4节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周四",section:"1-2节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周四",section:"3-4节",room:"机房6",teacher:"李晓波",class:"2025级视觉传达设计2班",course:"数字图形图像基础(理论)",weekRange:"9-12周"},
+  {week:"周五",section:"5-6节",room:"机房6",teacher:"邵鹏",class:"2025级小学语文教育1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房6",teacher:"王春勇",class:"2025级食品智能加工技术2班",course:"工程制图及CAD(实践)",weekRange:"9-16周"},
+  // 机房7
+  {week:"周一",section:"1-2节",room:"机房7",teacher:"刘兴波",class:"2025级计算机科学与技术4班",course:"Python程序设计A(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"3-4节",room:"机房7",teacher:"刘兴波、康秀兰",class:"2025级计科3班、计科1班",course:"Python程序设计A(理论)",weekRange:"刘3-16周/康1-2周"},
+  {week:"周一",section:"5-6节",room:"机房7",teacher:"王向慧",class:"2025级计算机应用技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"7-8节",room:"机房7",teacher:"王向慧",class:"2025级计算机应用技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"1-2节",room:"机房7",teacher:"康秀兰",class:"2025级计科1班、计科2班",course:"Python程序设计A(理论)",weekRange:"13-16周/6-8双周"},
+  {week:"周二",section:"3-4节",room:"机房7",teacher:"王德力",class:"2025级应用电子技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"5-6节",room:"机房7",teacher:"刘升华",class:"2025级电气自动化技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"7-8节",room:"机房7",teacher:"王德力",class:"2025级新能源汽车技术班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"9-10节",room:"机房7",teacher:"陈科燃",class:"2025级大数据与会计1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周三",section:"1-2节",room:"机房7",teacher:"康秀兰",class:"2025级计算机科学与技术2班",course:"Python程序设计A(理论)",weekRange:"2-4双/10-16双周"},
+  {week:"周三",section:"7-8节",room:"机房7",teacher:"徐华",class:"无",course:"AI+工具应用(理论)",weekRange:"2-17周"},
+  {week:"周三",section:"9-10节",room:"机房7",teacher:"刘兴波、康秀兰",class:"2025级计科3班、计科1班",course:"Python程序设计A(理论)",weekRange:"刘2-16双/康1-15单周"},
+  {week:"周四",section:"1-2节",room:"机房7",teacher:"代祥宇",class:"2025级空中乘务1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"3-4节",room:"机房7",teacher:"代祥宇",class:"2025级空中乘务2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"5-6节",room:"机房7",teacher:"代祥宇",class:"2025级空中乘务3班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"9-10节",room:"机房7",teacher:"陈科燃",class:"2025级大数据与会计3班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"1-2节",room:"机房7",teacher:"张跃旭",class:"2025级学前教育2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"3-4节",room:"机房7",teacher:"康秀兰",class:"2025级计科2班、计科1班",course:"Python程序设计A(理论)",weekRange:"1-4周/5-12周"},
+  {week:"周五",section:"5-6节",room:"机房7",teacher:"刘兴波、康秀兰",class:"2025级计科3班、计科1班/计科2班",course:"Python程序设计A(理论)",weekRange:"刘1-2周/康3-4周/5-16周"},
+  // 机房8
+  {week:"周一",section:"1-2节",room:"机房8",teacher:"刘升华",class:"2025级机电一体化技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"3-4节",room:"机房8",teacher:"刘升华",class:"2025级机电一体化技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"5-6节",room:"机房8",teacher:"郑立文",class:"2025级小学科学教育2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"7-8节",room:"机房8",teacher:"徐志英",class:"2025级化工生物技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"1-2节",room:"机房8",teacher:"王向慧",class:"2025级食品检验检测技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"3-4节",room:"机房8",teacher:"王向慧",class:"2025级食品检验检测技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"5-6节",room:"机房8",teacher:"徐志英",class:"2025级化工生物技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"7-8节",room:"机房8",teacher:"徐志英",class:"2025级食品智能加工技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周三",section:"5-6节",room:"机房8",teacher:"延昕",class:"2025级化工生物技术2班",course:"化工制图(实验)",weekRange:"9-16周"},
+  {week:"周四",section:"5-6节",room:"机房8",teacher:"刘长琦",class:"2025级现代物流管理2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"7-8节",room:"机房8",teacher:"胡方",class:"2025级市场营销1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"9-10节",room:"机房8",teacher:"刘智慧",class:"2025级视觉传达设计2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"1-2节",room:"机房8",teacher:"郑立文",class:"2025级大数据技术2班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"3-4节",room:"机房8",teacher:"郑立文",class:"2025级大数据技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"5-6节",room:"机房8",teacher:"郑立文",class:"2025级小学科学教育1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房8",teacher:"刘智慧",class:"2025级动漫制作技术2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  // 机房9
+  {week:"周一",section:"5-6节",room:"机房9",teacher:"徐志英",class:"2025级食品智能加工技术1班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"7-8节",room:"机房9",teacher:"陈科燃",class:"2025级美术教育3班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"1-2节",room:"机房9",teacher:"乔丽宏",class:"2025级数字媒体技术2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"3-4节",room:"机房9",teacher:"齐桂霞",class:"2025级学前教育4班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"7-8节",room:"机房9",teacher:"刘明",class:"2025级汽车制造与试验技术班",course:"Python语言程序设计(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"5-6节",room:"机房9",teacher:"乔丽宏",class:"2025级广告艺术设计1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"9-10节",room:"机房9",teacher:"乔丽宏",class:"2025级现代文秘1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"1-2节",room:"机房9",teacher:"邵鹏",class:"2025级小学语文教育2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"3-4节",room:"机房9",teacher:"刘智慧",class:"2025级广告艺术设计2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  // 机房10
+  {week:"周二",section:"5-6节",room:"机房10",teacher:"马列",class:"2024级学前教育1班、2024级学前教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周二",section:"7-8节",room:"机房10",teacher:"马列",class:"2024级小学数学教育1班、2024级小学数学教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周三",section:"1-2节",room:"机房10",teacher:"马列",class:"2024级小学教育3班、2024级小学教育4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周三",section:"3-4节",room:"机房10",teacher:"马列",class:"2024级学前教育7班、2024级早期教育1班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"1-2节",room:"机房10",teacher:"马列",class:"2024级美术教育3班、22级小学教育五年制",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"3-4节",room:"机房10",teacher:"刘长琦",class:"2024级小学英语教育1班、2024级小学英语教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"5-6节",room:"机房10",teacher:"刘长琦",class:"2024级学前教育3班、2024级学前教育4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"7-8节",room:"机房10",teacher:"刘长琦",class:"2024级小学英语教育3班、2024级小学英语教育4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"1-2节",room:"机房10",teacher:"刘长琦",class:"22级学前教育五年制1班、22级学前教育五年制2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"3-4节",room:"机房10",teacher:"马列",class:"2024级学前教育5班、2024级学前教育6班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"5-6节",room:"机房10",teacher:"刘长琦",class:"22级学前教育五年制3班、22级学前教育五年制4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  // 机房11
+  {week:"周一",section:"5-6节",room:"机房11",teacher:"杨旭",class:"2025级小学数学教育2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周一",section:"7-8节",room:"机房11",teacher:"邵鹏",class:"2025级美术教育2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周二",section:"7-8节",room:"机房11",teacher:"张跃旭",class:"2025级学前教育1班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"7-8节",room:"机房11",teacher:"张跃旭",class:"2025级学前教育3班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  // 机房12
+  {week:"周一",section:"5-6节",room:"机房12",teacher:"贾树刚",class:"22级学前教育五年制5班、22级学前教育五年制6班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周三",section:"1-2节",room:"机房12",teacher:"禹波",class:"2024级小学数学教育5班、2024级小学科学教育1班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周三",section:"3-4节",room:"机房12",teacher:"禹波",class:"2024级小学数学教育3班、2024级小学数学教育4班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"1-2节",room:"机房12",teacher:"贾树刚",class:"22级学前教育五年制7班、22级学前教育五年制8班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周四",section:"3-4节",room:"机房12",teacher:"禹波",class:"2024级小学科学教育2班、2024级小学科学教育3班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  {week:"周五",section:"3-4节",room:"机房12",teacher:"马列",class:"2024级美术教育1班、2024级美术教育2班",course:"现代教育技术(理论)",weekRange:"1-18周"},
+  // 机房13
+  {week:"周一",section:"1-2节",room:"机房13",teacher:"樊小乔",class:"2025级数字媒体技术1班",course:"数字视觉设计(理论)",weekRange:"4-7周"},
+  {week:"周一",section:"3-4节",room:"机房13",teacher:"樊小乔",class:"2025级数字媒体技术1班",course:"数字视觉设计(理论)",weekRange:"4-7周"},
+  {week:"周一",section:"5-6节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周一",section:"7-8节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周二",section:"1-2节",room:"机房13",teacher:"樊小乔",class:"2025级数字媒体技术1班",course:"数字视觉设计(理论)",weekRange:"4-7周"},
+  {week:"周二",section:"3-4节",room:"机房13",teacher:"樊小乔",class:"2025级数字媒体技术1班",course:"数字视觉设计(理论)",weekRange:"4-7周"},
+  {week:"周二",section:"5-6节",room:"机房13",teacher:"樊小乔、刘林鹏",class:"2025级数媒1班、2025级数媒2班",course:"数字视觉设计、用户界面设计",weekRange:"樊4-7周/刘12-15周"},
+  {week:"周二",section:"7-8节",room:"机房13",teacher:"刘林鹏",class:"2025级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"12-15周"},
+  {week:"周二",section:"9-10节",room:"机房13",teacher:"刘林鹏",class:"2025级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"12-15周"},
+  {week:"周三",section:"1-2节",room:"机房13",teacher:"樊小乔、刘林鹏",class:"2025级数媒1班、2025级数媒2班",course:"数字视觉设计、用户界面设计",weekRange:"樊4-7周/刘12-15周"},
+  {week:"周三",section:"3-4节",room:"机房13",teacher:"陈科燃",class:"2025级大数据与会计2班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周四",section:"1-2节",room:"机房13",teacher:"樊小乔、刘林鹏",class:"2025级数媒1班、2025级数媒2班",course:"数字视觉设计、用户界面设计",weekRange:"樊4-7周/刘12-15周"},
+  {week:"周四",section:"3-4节",room:"机房13",teacher:"樊小乔、刘林鹏",class:"2025级数媒1班、2025级数媒2班",course:"数字视觉设计、用户界面设计",weekRange:"樊4-7周/刘12-15周"},
+  {week:"周四",section:"5-6节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周四",section:"7-8节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周四",section:"9-10节",room:"机房13",teacher:"刘林鹏",class:"2025级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"12-15周"},
+  {week:"周五",section:"1-2节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周五",section:"3-4节",room:"机房13",teacher:"刘林鹏",class:"2024级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"7-12周"},
+  {week:"周五",section:"5-6节",room:"机房13",teacher:"刘林鹏",class:"2025级数字媒体技术2班",course:"用户界面设计(理论)",weekRange:"12-15周"},
+  {week:"周五",section:"9-10节",room:"机房13",teacher:"陈科燃",class:"2025级大数据与会计4班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  // 机房14
+  {week:"周一",section:"1-2节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周一",section:"3-4节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周一",section:"5-6节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  {week:"周一",section:"7-8节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  {week:"周二",section:"1-2节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周二",section:"3-4节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周二",section:"5-6节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  {week:"周二",section:"7-8节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  {week:"周三",section:"1-2节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周三",section:"3-4节",room:"机房14",teacher:"李梁、姜超",class:"2025级视传2班、2024级数媒1/2班",course:"数字动态设计Ⅰ、融媒体技术",weekRange:"李13-16周/姜1-6周"},
+  {week:"周四",section:"1-2节",room:"机房14",teacher:"李梁",class:"2025级视觉传达设计2班",course:"数字动态设计Ⅰ(理论)",weekRange:"13-16周"},
+  {week:"周四",section:"3-4节",room:"机房14",teacher:"李梁",class:"2025级视觉传达设计2班",course:"数字动态设计Ⅰ(理论)",weekRange:"13-16周"},
+  {week:"周五",section:"5-6节",room:"机房14",teacher:"徐兴楠",class:"2025级视觉传达设计2班",course:"专业竞赛项目(实践)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  {week:"周五",section:"9-10节",room:"机房14",teacher:"樊小乔",class:"2024级数字媒体技术1/2班",course:"数字视觉设计(理论)",weekRange:"13-18周"},
+  // 机房16
+  {week:"周一",section:"1-2节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周一",section:"3-4节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周一",section:"7-8节",room:"机房16",teacher:"邓利强",class:"2025级食品科学与工程2班",course:"计算机辅助制图(实践)",weekRange:"9-16周"},
+  {week:"周二",section:"1-2节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周二",section:"3-4节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周二",section:"5-6节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周二",section:"9-10节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周四",section:"1-2节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"},
+  {week:"周四",section:"3-4节",room:"机房16",teacher:"张跃旭",class:"2025级音乐教育班",course:"人工智能基础(理论)",weekRange:"1-16周"},
+  {week:"周五",section:"7-8节",room:"机房16",teacher:"范樱子",class:"2025级数字媒体技术2班",course:"交互设计(理论)",weekRange:"8-11周"}
+];
+
+// 查询功能
+function searchSchedule() {
+  const key = document.getElementById("key").value.trim().toLowerCase();
+  const resultBox = document.getElementById("result");
+  
+  // 清空结果
+  resultBox.innerHTML = "";
+  
+  // 判空
+  if (!key) {
+    resultBox.innerHTML = '<div class="empty">请输入班级/教师姓名/机房号进行查询</div>';
+    return;
+  }
+  
+  // 智能拆分关键词：
+  // 1. 先把常见中文简称映射成全称
+  const aliasMap = {
+   // 教育类
+    "小教": "小学教育",
+    "语教": "小学语文教育",
+    "小英": "小学英语教育",
+    "小数": "小学数学教育",
+    "小科": "小学科学教育",
+    "学前": "学前教育",
+    "早期教育": "早期教育",
+    "音教": "音乐教育",
+    "美教": "美术教育",
+    "文秘": "现代文秘",
+
+    // 计算机与信息技术类
+    "计科": "计算机科学与技术",
+    "数媒": "数字媒体技术",
+    "视传": "视觉传达设计",
+    "广告": "广告艺术设计",
+    "动漫": "动漫制作技术",
+    "大数据": "大数据技术",
+    "会计": "大数据与会计",
+    "计算机应用": "计算机应用技术",
+    "智能制造": "智能制造装备技术",
+    "电气": "电气自动化技术",
+    "机电": "机电一体化技术",
+    "电子": "应用电子技术",
+    "新能源": "新能源汽车技术",
+    "汽车": "汽车制造与试验技术",
+
+    // 化工与食品类
+    "化工": "化工生物技术",
+    "食加": "食品智能加工技术",
+    "食检": "食品检验检测技术",
+    "食品工程": "食品科学与工程",
+
+    // 经管与服务类
+    "旅游": "旅游管理",
+    "市营": "市场营销",
+    "物流": "现代物流管理",
+    "空乘": "空中乘务"
+  };
+  
+ // 2. 替换简称，再在数字和中文之间插入空格进行拆分
+  let processedKey = key;
+  for (const [short, full] of Object.entries(aliasMap)) {
+    processedKey = processedKey.replace(new RegExp(short, 'g'), full);
+  }
+  processedKey = processedKey.replace(/(\d)([^\d])/g, '$1 $2');
+  processedKey = processedKey.replace(/([^\d])(\d)/g, '$1 $2');
+  
+  const keywords = processedKey.split(/\s+/).filter(k => k);
+  
+  if (keywords.length === 0) {
+    resultBox.innerHTML = '<div class="empty">请输入有效关键词</div>';
+    return;
+  }
+
+  // 所有关键词都必须在某条记录中出现，才会被匹配
+  const filterData = scheduleData.filter(item => {
+    const room = item.room.toLowerCase();
+    const teacher = item.teacher.toLowerCase();
+    const className = item.class.toLowerCase();
+    const course = item.course.toLowerCase();
+    
+    // 机房号精确匹配：如果关键词是“机房7”，则只匹配room字段
+    if (key.startsWith("机房")) {
+      return room === key;
+    }
+    
+    // 其他情况：所有关键词都必须在某条记录中出现，才会被匹配
+    const combinedText = [room, teacher, className, course].join(' ');
+    return keywords.every(k => combinedText.includes(k));
+  });
+  
+  // 无结果
+  if (filterData.length === 0) {
+    resultBox.innerHTML = '<div class="empty">未查询到相关上课信息，请重新输入关键字：</div>';
+    return;
+  }
+  
+  // 渲染结果
+  let html = "";
+  filterData.forEach(item => {
+    html += `
+    <div class="item">
+      <div class="title">
+        <span>${item.week} ${item.section}</span>
+        <span style="color:#4299e1">${item.room}</span>
+      </div>
+      <div class="info"><label>课程：</label>${item.course}</div>
+      <div class="info"><label>教师：</label>${item.teacher}</div>
+      <div class="info"><label>班级：</label>${item.class}</div>
+      <div class="info"><label>周次：</label>${item.weekRange}</div>
+    </div>
+    `;
+  });
+  resultBox.innerHTML = html;
+}
+
+// 回车触发查询
+document.getElementById("key").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") searchSchedule();
+});
+</script>
+</body>
+</html>
