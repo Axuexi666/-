@@ -34,7 +34,7 @@ h2 {text-align:center;color:#2d3748;margin-bottom:25px;font-size:20px;font-weigh
 </div>
 
 <script>
-// 完整机房课表数据（恢复上午/下午/晚上前缀）
+// 完整机房课表数据（带上午/下午/晚上前缀）
 const scheduleData = [
   // 公共机房1
   {room: "机房1", time: "上午1-2节", week: "周一", course: "现代教育技术(理论)", teacher: "马列", className: "2024级小学教育5班、6班", weekNum: "1-18周"},
@@ -209,7 +209,7 @@ const scheduleData = [
   {room: "机房16", time: "下午5-6节", week: "周二", course: "交互设计(理论)", teacher: "范樱子", className: "2025级数字媒体技术2班", weekNum: "8-11周"}
 ];
 
-// 查询功能（精确匹配班级，避免模糊匹配）
+// 核心查询逻辑：兼顾精确匹配（带编号）和模糊匹配（简称）
 function searchSchedule() {
   const key = document.getElementById("key").value.trim().toLowerCase();
   const resultBox = document.getElementById("result");
@@ -220,7 +220,7 @@ function searchSchedule() {
     return;
   }
 
-  // 智能简称映射
+  // 1. 智能简称映射（兼容"数媒""学前"等简称）
   const aliasMap = {
     "小教": "小学教育", "语教": "小学语文教育", "小英": "小学英语教育",
     "小数": "小学数学教育", "小科": "小学科学教育", "学前": "学前教育",
@@ -234,35 +234,43 @@ function searchSchedule() {
     "旅游": "旅游管理", "市营": "市场营销", "物流": "现代物流管理", "空乘": "空中乘务"
   };
   
+  // 替换简称
   let processedKey = key;
   for (const [short, full] of Object.entries(aliasMap)) {
-    processedKey = processedKey.replace(new RegExp(short, 'g'), full);
-  }
-  processedKey = processedKey.replace(/(\d)([^\d])/g, '$1 $2').replace(/([^\d])(\d)/g, '$1 $2');
-  const keywords = processedKey.split(/\s+/).filter(k => k);
-
-  if (keywords.length === 0) {
-    resultBox.innerHTML = '<div class="empty">请输入有效关键词</div>';
-    return;
+    processedKey = processedKey.replace(new RegExp(short, 'gi'), full);
   }
 
-  // 精确匹配：所有关键词必须完整出现在对应字段中
-  const filterData = scheduleData.filter(item => {
-    const room = item.room.toLowerCase();
-    const teacher = item.teacher.toLowerCase();
-    const className = item.className.toLowerCase();
-    const course = item.course.toLowerCase();
-    
-    if (key.startsWith("机房")) return room === key;
-    const matchRoom = room.includes(key);
-    const matchTeacher = teacher.includes(key);
-    const matchClass = className.includes(key);
-    const matchCourse = course.includes(key);
-    return matchRoom || matchTeacher || matchClass || matchCourse;
+  // 2. 分级匹配逻辑
+  let filterData = [];
+  // 先尝试精确匹配（带班级编号，如"25数媒2"→"2025级数字媒体技术2班"）
+  const exactMatch = scheduleData.filter(item => {
+    const classNameLower = item.className.toLowerCase();
+    return classNameLower.includes(processedKey) || 
+           // 兼容"24学前1"匹配"24级学前1班"
+           classNameLower.includes(key.replace(/(\d+)(\D+)(\d+)/, '$1级$2$3班'));
   });
 
+  // 如果有精确匹配结果，优先用；没有则用模糊匹配
+  if (exactMatch.length > 0) {
+    filterData = exactMatch;
+  } else {
+    // 模糊匹配：兼容机房号、教师、班级简称
+    filterData = scheduleData.filter(item => {
+      const room = item.room.toLowerCase();
+      const teacher = item.teacher.toLowerCase();
+      const className = item.className.toLowerCase();
+      const course = item.course.toLowerCase();
+      
+      return room.includes(key) || 
+             teacher.includes(key) || 
+             className.includes(key) || 
+             course.includes(key);
+    });
+  }
+
+  // 3. 结果展示
   if (filterData.length === 0) {
-    resultBox.innerHTML = '<div class="empty">未查询到相关上课信息<br>请重新输入关键字：</div>';
+    resultBox.innerHTML = '<div class="empty">未查询到相关上课信息<br>请重新输入关键字</div>';
     return;
   }
 
@@ -284,6 +292,7 @@ function searchSchedule() {
   resultBox.innerHTML = html;
 }
 
+// 回车触发查询
 document.getElementById("key").addEventListener("keydown", function(e) {
   if (e.key === "Enter") searchSchedule();
 });
