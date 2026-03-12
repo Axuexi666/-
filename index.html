@@ -34,7 +34,7 @@ h2 {text-align:center;color:#2d3748;margin-bottom:25px;font-size:20px;font-weigh
 </div>
 
 <script>
-// 完整机房课表数据（已解析你的Excel课表）
+// 完整机房课表数据
 const scheduleData = [
   // 公共机房1
   {room: "机房1", time: "上午1-2节", week: "周一", course: "现代教育技术(理论)", teacher: "马列", class: "2024级小学教育5班、6班", weekNum: "1-18周"},
@@ -305,19 +305,19 @@ function searchSchedule() {
     return;
   }
   
-  // 渲染结果
+  // 渲染结果（核心修改处）
   let html = "";
   filterData.forEach(item => {
     html += `
     <div class="item">
       <div class="title">
-        <span>${item.week} ${item.section}</span>
+        <span>${item.week} ${item.time}</span>
         <span style="color:#4299e1">${item.room}</span>
       </div>
       <div class="info"><label>课程：</label>${item.course}</div>
       <div class="info"><label>教师：</label>${item.teacher}</div>
       <div class="info"><label>班级：</label>${item.class}</div>
-      <div class="info"><label>周次：</label>${item.weekRange}</div>
+      <div class="info"><label>周次：</label>${item.weekNum}</div>
     </div>
     `;
   });
@@ -331,7 +331,3 @@ document.getElementById("key").addEventListener("keydown", function(e) {
 </script>
 </body>
 </html>
-
-
-
-
