@@ -209,7 +209,7 @@ const scheduleData = [
   {room: "机房16", time: "下午5-6节", week: "周二", course: "交互设计(理论)", teacher: "范樱子", className: "2025级数字媒体技术2班", weekNum: "8-11周"}
 ];
 
-// 核心查询逻辑：恢复智能映射 + 极简模糊匹配
+// 核心查询逻辑：支持「25=2025级」「24=2024级」+ 简称映射 + 双重匹配
 function searchSchedule() {
   const key = document.getElementById("key").value.trim().toLowerCase();
   const resultBox = document.getElementById("result");
@@ -220,7 +220,14 @@ function searchSchedule() {
     return;
   }
 
-  // 1. 恢复智能简称映射（兼容所有常用简称）
+  // 1. 年级简写映射（25→2025级，24→2024级）
+  const gradeMap = {
+    "25": "2025级",
+    "24": "2024级",
+    "22": "22级" // 兼容22级学前等班级
+  };
+  
+  // 2. 班级简称映射（保留所有原有映射）
   const aliasMap = {
     "小教": "小学教育", "语教": "小学语文教育", "小英": "小学英语教育",
     "小数": "小学数学教育", "小科": "小学科学教育", "学前": "学前教育",
@@ -233,23 +240,39 @@ function searchSchedule() {
     "食加": "食品智能加工技术", "食检": "食品检验检测技术", "食品工程": "食品科学与工程",
     "旅游": "旅游管理", "市营": "市场营销", "物流": "现代物流管理", "空乘": "空中乘务"
   };
-  
-  // 生成替换后的关键词（同时保留原关键词，双重匹配）
-  let processedKey = key;
-  for (const [short, full] of Object.entries(aliasMap)) {
-    processedKey = processedKey.replace(new RegExp(short, 'gi'), full);
+
+  // 3. 生成所有可能的匹配关键词（原关键词+年级映射+简称映射）
+  let matchKeys = [key]; // 保留原关键词
+
+  // 年级简写替换（如"25数媒"→"2025级数媒"）
+  let gradeReplacedKey = key;
+  for (const [short, full] of Object.entries(gradeMap)) {
+    // 匹配"25数媒"这种格式（数字+中文），不匹配纯数字（如"25"）
+    if (new RegExp(`^${short}[^0-9]`).test(gradeReplacedKey)) {
+      gradeReplacedKey = gradeReplacedKey.replace(short, full);
+      matchKeys.push(gradeReplacedKey);
+    }
   }
 
-  // 2. 双重匹配：既匹配原关键词，也匹配映射后的关键词，确保不遗漏
+  // 简称替换（如"2025级数媒"→"2025级数字媒体技术"）
+  let aliasReplacedKey = gradeReplacedKey;
+  for (const [short, full] of Object.entries(aliasMap)) {
+    aliasReplacedKey = aliasReplacedKey.replace(new RegExp(short, 'gi'), full);
+  }
+  matchKeys.push(aliasReplacedKey);
+
+  // 4. 多关键词匹配：只要任意一个匹配关键词命中字段即可
   const filterData = scheduleData.filter(item => {
     const room = item.room.toLowerCase();
     const teacher = item.teacher.toLowerCase();
     const className = item.className.toLowerCase();
     const course = item.course.toLowerCase();
     
-    // 匹配规则：原关键词 或 映射后的关键词 包含在任意字段中
-    return room.includes(key) || teacher.includes(key) || className.includes(key) || course.includes(key) ||
-           room.includes(processedKey) || teacher.includes(processedKey) || className.includes(processedKey) || course.includes(processedKey);
+    // 遍历所有匹配关键词，只要有一个命中就保留
+    return matchKeys.some(matchKey => {
+      const mk = matchKey.toLowerCase();
+      return room.includes(mk) || teacher.includes(mk) || className.includes(mk) || course.includes(mk);
+    });
   });
 
   // 结果展示
